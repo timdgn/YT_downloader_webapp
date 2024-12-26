@@ -2,7 +2,9 @@ import yt_dlp
 import os
 
 # Get the current directory path
-current_dir = os.path.dirname(os.path.abspath(__file__))
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+OUTPUT_DIR = os.path.join(CURRENT_DIR, 'output')
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def get_format_id(resolution):
     if resolution in ["low", "360", "360p"]:
@@ -16,15 +18,12 @@ def get_format_id(resolution):
     else:
         return "18"  # Default to 360p
 
-def download_video(url, resolution):
-    # Create output directory if it doesn't exist
-    output_dir = os.path.join(current_dir, 'output')
-    os.makedirs(output_dir, exist_ok=True)
+def download_video(url, resolution, OUTPUT_DIR):
     
     format_id = get_format_id(resolution)
     ydl_opts = {
         'format': format_id,
-        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'outtmpl': os.path.join(OUTPUT_DIR, '%(title)s.%(ext)s'),
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:
@@ -35,18 +34,18 @@ def download_video(url, resolution):
             print(f"Error downloading {url}: {str(e)}")
             return None
 
-def download_videos(urls, resolution):
+def download_videos(urls, resolution, OUTPUT_DIR):
     for url in urls:
-        download_video(url, resolution)
+        download_video(url, resolution, OUTPUT_DIR)
 
 def download_playlist(url, resolution):
     # Create output directory if it doesn't exist
-    output_dir = os.path.join(current_dir, 'output')
-    os.makedirs(output_dir, exist_ok=True)
+    OUTPUT_DIR = os.path.join(CURRENT_DIR, 'output')
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     ydl_opts = {
         'format': get_format_id(resolution),
-        'outtmpl': os.path.join(output_dir, '%(title)s.%(ext)s'),
+        'outtmpl': os.path.join(OUTPUT_DIR, '%(title)s.%(ext)s'),
     }
     
     with yt_dlp.YoutubeDL(ydl_opts) as ydl:

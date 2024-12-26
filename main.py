@@ -1,5 +1,6 @@
 import streamlit as st
-import youtube_downloader
+from glob import glob
+from youtube_downloader import *
 
 def main():
     st.title("YouTube Video Downloader 🎞️")
@@ -40,7 +41,7 @@ def main():
                         # Progress bar
                         progress_bar = st.progress(0)
                         for i, url in enumerate(url_list):
-                            filename = youtube_downloader.download_video(url, quality)
+                            filename = download_video(url, quality, OUTPUT_DIR)
                             if filename:
                                 st.success(f"Successfully downloaded: {filename}")
                             # Update progress
@@ -71,7 +72,7 @@ def main():
                 "high": "High (1080p)",
                 "very high": "Very High (4K)"
             }[x],
-            key="playlist_quality"  # Unique key to avoid conflict with the other selectbox
+            key="playlist_quality"
         )
 
         st.markdown("#####")
@@ -80,12 +81,39 @@ def main():
             if playlist_url:
                 with st.spinner("Downloading playlist... Please wait"):
                     try:
-                        youtube_downloader.download_playlist(playlist_url, quality)
-                        st.success("Playlist download completed!")
+                        download_playlist(playlist_url, quality)
+                        st.success("Playlist download completed !")
                     except Exception as e:
                         st.error(f"An error occurred: {str(e)}")
             else:
                 st.warning("Please enter a playlist URL")
+
+    st.markdown("#####")
+
+    # Add a section to display downloaded files
+    st.subheader("Downloaded Files")
+    # if OUTPUT_DIR does not exist
+    if os.path.exists(OUTPUT_DIR):
+        files = glob(os.path.join(OUTPUT_DIR, "*"))
+        if files:
+            for file in files:
+                filename = os.path.basename(file)
+                col1, col2 = st.columns([3, 1])
+                with col1:
+                    st.text(filename)
+                with col2:
+                    with open(file, "rb") as f:
+                        if st.download_button(
+                            label="Download",
+                            data=f,
+                            file_name=filename,
+                            key=f"download_{filename}"):
+                                # Delete the file after successful download
+                                f.close()  # Close the file handle before deleting
+                                os.remove(file)
+                                st.rerun()  # Refresh the page to update the file list
+        else:
+            st.info("No files available for download")
 
 if __name__ == "__main__":
     main()
