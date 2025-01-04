@@ -31,7 +31,7 @@ def main():
 
         st.markdown("#####")
 
-        if st.button("Download Videos 🔥"):
+        if st.button("Process video(s) 🔥"):
             if urls:
                 with st.spinner("Downloading videos... Please wait"):
                     try:
@@ -77,7 +77,7 @@ def main():
 
         st.markdown("#####")
 
-        if st.button("Download Playlist 🔥"):
+        if st.button("Process playlist 🔥"):
             if playlist_url:
                 with st.spinner("Downloading playlist... Please wait"):
                     try:
