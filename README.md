@@ -23,6 +23,8 @@ A streamlined web application built with Streamlit that allows you to download Y
 1. Clone this repository:
 ```bash
 git clone https://github.com/timdgn/YT_downloader_webapp.git
+```
+```bash
 cd YT_downloader_webapp
 ```
 

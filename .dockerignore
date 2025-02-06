@@ -1,0 +1,14 @@
+output/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+*.mp4
+*.webm
+*.m4a
+.git
+.gitignore

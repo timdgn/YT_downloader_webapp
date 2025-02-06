@@ -1,9 +1,8 @@
 import yt_dlp
 import os
 
-# Get the current directory path
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-OUTPUT_DIR = os.path.join(CURRENT_DIR, 'output')
+# Get output directory from environment variable with fallback
+OUTPUT_DIR = os.getenv('OUTPUT_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output'))
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def get_format_id(resolution):
@@ -40,7 +39,7 @@ def download_videos(urls, resolution, OUTPUT_DIR):
 
 def download_playlist(url, resolution):
     # Create output directory if it doesn't exist
-    OUTPUT_DIR = os.path.join(CURRENT_DIR, 'output')
+    OUTPUT_DIR = os.getenv('OUTPUT_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output'))
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     
     ydl_opts = {

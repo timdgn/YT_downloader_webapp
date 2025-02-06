@@ -1,6 +1,11 @@
 import streamlit as st
 from glob import glob
 from youtube_downloader import *
+import os
+
+# Use environment variable for output directory with fallback
+OUTPUT_DIR = os.getenv('OUTPUT_DIR', os.path.join(os.path.dirname(os.path.abspath(__file__)), 'output'))
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 def main():
     st.title("YouTube Video Downloader 🎞️")
