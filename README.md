@@ -54,12 +54,6 @@ streamlit run main.py
    - Select desired video quality
    - Click "Download Playlist 🔥"
 
-## Dependencies 📦
-
-- Python 3.9.21
-- streamlit==1.41.1
-- yt-dlp==2023.12.30
-
 ## Notes 📝
 
 - Downloaded videos will be saved in the `output` directory
