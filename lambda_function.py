@@ -7,6 +7,7 @@ from botocore.exceptions import ClientError
 
 s3 = boto3.client('s3')
 OUTPUT_DIR = "/tmp"  # AWS Lambda has write permissions in /tmp
+FORMATS = {"low": "18", "medium": "22", "high": "137+140", "very high": "313+140"}
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 http = urllib3.PoolManager()
@@ -52,8 +53,7 @@ def send_video(chat_id, file_path):
             "video": (file_name, video_data, "video/mp4")})  # Nom du fichier, données, type MIME
 
 def get_format_id(resolution):
-    formats = {"low": "18", "medium": "22", "high": "137+140", "very high": "313+140"}
-    return formats.get(resolution, "18")
+    return FORMATS.get(resolution, "18")
 
 def download_video(url, resolution):
     
@@ -99,25 +99,24 @@ def lambda_handler(event, context):
 
     # Assert there is 2 parts
     parts = message_text.split()
-    if len(parts) < 2:
-        msg = "Please send the URL followed by the quality (low, medium, high, very high). Example: https://youtu.be/example high"
+    if len(parts) == 1:
+        msg = f"Please send the URL followed by the resolution ({', '.join(FORMATS.keys())}). Example: https://youtu.be/example high"
         send_message(chat_id, msg)
         return {'statusCode': 200, 'body': json.dumps('Invalid input')}
-    url, quality = parts[0], " ".join(parts[1:])
+    url, resolution = parts[0], parts[1]
     print(f"*** URL : {url}")
-    print(f"*** Quality : {quality}")
+    print(f"*** Resolution : {resolution}")
 
-    # Assert quality is one of the allowed values
-    allowed_qualities = ["low", "medium", "high", "very high"]
-    if quality not in allowed_qualities:
-        msg = "Invalid quality. Please choose from low, medium, high, or very high."
+    # Assert resolution is one of the allowed values
+    if resolution not in FORMATS:
+        msg = f"Invalid resolution. Please choose from {', '.join(FORMATS.keys())}"
         send_message(chat_id, msg)
-        print(f"*** Invalid quality : {quality}")
-        return {'statusCode': 200, 'body': json.dumps('Invalid quality')}
+        print(f"*** Invalid resolution : {resolution}")
+        return {'statusCode': 200, 'body': json.dumps('Invalid resolution')}
 
     # Download the video
     send_message(chat_id, "Downloading video, please wait...")
-    file_path = download_video(url, quality)
+    file_path = download_video(url, resolution)
     print(f"*** File Path : {file_path}")
     if file_path:
         send_video(chat_id, file_path)
