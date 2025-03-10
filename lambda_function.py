@@ -5,11 +5,17 @@ import subprocess
 import boto3
 from botocore.exceptions import ClientError
 
-s3 = boto3.client('s3')
+
 OUTPUT_DIR = "/tmp"  # AWS Lambda has write permissions in /tmp
+FORMATS = {
+    "low": "bestvideo[height<=240][ext=mp4]+bestaudio",
+    "medium": "bestvideo[height<=480][ext=mp4]+bestaudio",
+    "high": "bestvideo[height<=720][ext=mp4]+bestaudio"}
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
+s3 = boto3.client('s3')
 http = urllib3.PoolManager()
+
 
 def get_secret_bot_token():
     secret_name = "Telegram-bot-token"
@@ -31,11 +37,13 @@ def get_secret_bot_token():
 
     return secret['bot_token']
 
+
 def send_message(bot_token, chat_id, message):
     url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
     data = {"chat_id": chat_id, "text": message}
     encoded_data = json.dumps(data).encode('utf-8')
     http.request('POST', url, body=encoded_data, headers={'Content-Type': 'application/json'})
+
 
 def send_video(bot_token, chat_id, file_path):
     file_name = os.path.basename(file_path)
@@ -51,13 +59,10 @@ def send_video(bot_token, chat_id, file_path):
             "chat_id": str(chat_id),
             "video": (file_name, video_data, "video/mp4")})  # Nom du fichier, données, type MIME
 
-def get_format_id(resolution):
-    formats = {"low": "18", "medium": "22", "high": "137+140", "very high": "313+140"}
-    return formats.get(resolution, "18")
 
 def download_video(url, resolution):
     
-    format_id = get_format_id(resolution)
+    format = FORMATS.get(resolution, FORMATS["medium"])
     yt_dlp_path = "/opt/bin/yt-dlp"
     cookie_file = "/tmp/cookie.txt"
     output_path = "/tmp/%(title)s.%(ext)s"
@@ -70,6 +75,7 @@ def download_video(url, resolution):
         yt_dlp_path,
         "--cookies", cookie_file,
         "-o", output_path,
+        "-f", format,
         url
     ]
 
@@ -87,11 +93,17 @@ def download_video(url, resolution):
         print("*** Error downloading")
         return None
 
+
 def lambda_handler(event, context):
+    print(f"*** Event : {event}")
     body = json.loads(event['body'])
     print(f"*** Body : {body}")
-    chat_id = body['message']['chat']['id']
-    message_text = body['message']['text']
+    try:
+        chat_id = body['message']['chat']['id']
+        message_text = body['message']['text']
+    except KeyError:
+        chat_id = body['edited_message']['chat']['id']
+        message_text = body['edited_message']['text']
 
     # Get the Telegram bot token from Secrets Manager
     bot_token = get_secret_bot_token()
@@ -99,25 +111,24 @@ def lambda_handler(event, context):
 
     # Assert there is 2 parts
     parts = message_text.split()
-    if len(parts) < 2:
-        msg = "Please send the URL followed by the quality (low, medium, high, very high). Example: https://youtu.be/example high"
+    if len(parts) != 2:
+        msg = f"Please send the URL followed by the resolution ({', '.join(FORMATS.keys())}). Example: https://youtu.be/example high"
         send_message(bot_token, chat_id, msg)
         return {'statusCode': 200, 'body': json.dumps('Invalid input')}
-    url, quality = parts[0], " ".join(parts[1:])
+    url, resolution = parts[0], parts[1]
     print(f"*** URL : {url}")
-    print(f"*** Quality : {quality}")
+    print(f"*** resolution : {resolution}")
 
-    # Assert quality is one of the allowed values
-    allowed_qualities = ["low", "medium", "high", "very high"]
-    if quality not in allowed_qualities:
-        msg = "Invalid quality. Please choose from low, medium, high, or very high."
+    # Assert resolution is one of the allowed values
+    if resolution not in FORMATS.keys():
+        msg = f"Invalid resolution. Please choose from {', '.join(FORMATS.keys())}."
         send_message(bot_token, chat_id, msg)
-        print(f"*** Invalid quality : {quality}")
-        return {'statusCode': 200, 'body': json.dumps('Invalid quality')}
+        print(f"*** Invalid resolution : {resolution}")
+        return {'statusCode': 200, 'body': json.dumps('Invalid resolution')}
 
     # Download the video
     send_message(bot_token, chat_id, "Downloading video, please wait...")
-    file_path = download_video(url, quality)
+    file_path = download_video(url, resolution)
     print(f"*** File Path : {file_path}")
     if file_path:
         send_video(bot_token, chat_id, file_path)
