@@ -8,9 +8,9 @@ from botocore.exceptions import ClientError
 
 OUTPUT_DIR = "/tmp"  # AWS Lambda has write permissions in /tmp
 FORMATS = {
-    "low": "bestvideo[height<=240][ext=mp4]+bestaudio",
-    "medium": "bestvideo[height<=480][ext=mp4]+bestaudio",
-    "high": "bestvideo[height<=720][ext=mp4]+bestaudio"}
+    "low": "bestvideo[height<=240][ext=mp4]+bestaudio[ext=mp4]",
+    "medium": "bestvideo[height<=480][ext=mp4]+bestaudio[ext=mp4]",
+    "high": "bestvideo[height<=720][ext=mp4]+bestaudio[ext=mp4]"}
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 s3 = boto3.client('s3')
@@ -38,16 +38,16 @@ def get_secret_bot_token():
     return secret['bot_token']
 
 
-def send_message(bot_token, chat_id, message):
-    url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
+def send_message(chat_id, message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
     data = {"chat_id": chat_id, "text": message}
     encoded_data = json.dumps(data).encode('utf-8')
     http.request('POST', url, body=encoded_data, headers={'Content-Type': 'application/json'})
 
 
-def send_video(bot_token, chat_id, file_path):
+def send_video(chat_id, file_path):
     file_name = os.path.basename(file_path)
-    url = f"https://api.telegram.org/bot{bot_token}/sendVideo"
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendVideo"
 
     with open(file_path, 'rb') as video:
         video_data = video.read()  # Lire tout le fichier en bytes
@@ -75,7 +75,6 @@ def download_video(url, resolution):
         yt_dlp_path,
         "--cookies", cookie_file,
         "-o", output_path,
-        "-f", format,
         url
     ]
 
@@ -89,6 +88,9 @@ def download_video(url, resolution):
         for file in os.listdir("/tmp"):
             if file.endswith(".mp4"):
                 return f"/tmp/{file}"
+            else:
+                print("*** No mp4 file found")
+                return None
     else:
         print("*** Error downloading")
         return None
@@ -106,14 +108,15 @@ def lambda_handler(event, context):
         message_text = body['edited_message']['text']
 
     # Get the Telegram bot token from Secrets Manager
-    bot_token = get_secret_bot_token()
-    print(f"*** Bot Token : {bot_token}")
+    global BOT_TOKEN
+    BOT_TOKEN = get_secret_bot_token()
+    print(f"*** Bot Token : {BOT_TOKEN}")
 
     # Assert there is 2 parts
     parts = message_text.split()
     if len(parts) != 2:
         msg = f"Please send the URL followed by the resolution ({', '.join(FORMATS.keys())}). Example: https://youtu.be/example high"
-        send_message(bot_token, chat_id, msg)
+        send_message(chat_id, msg)
         return {'statusCode': 200, 'body': json.dumps('Invalid input')}
     url, resolution = parts[0], parts[1]
     print(f"*** URL : {url}")
@@ -122,18 +125,21 @@ def lambda_handler(event, context):
     # Assert resolution is one of the allowed values
     if resolution not in FORMATS.keys():
         msg = f"Invalid resolution. Please choose from {', '.join(FORMATS.keys())}."
-        send_message(bot_token, chat_id, msg)
+        send_message(chat_id, msg)
         print(f"*** Invalid resolution : {resolution}")
         return {'statusCode': 200, 'body': json.dumps('Invalid resolution')}
 
     # Download the video
-    send_message(bot_token, chat_id, "Downloading video, please wait...")
+    send_message(chat_id, "Downloading video, please wait...")
     file_path = download_video(url, resolution)
     print(f"*** File Path : {file_path}")
     if file_path:
-        send_video(bot_token, chat_id, file_path)
+        file_name = os.path.basename(file_path)
+        msg = f"""Sending "{file_name}" at {resolution} resolution..."""
+        send_message(chat_id, msg)
+        send_video(chat_id, file_path)
         os.remove(file_path)  # Clean up after sending
     else:
-        send_message(bot_token, chat_id, "Failed to download the video. Please try again.")
+        send_message(chat_id, "Failed to download the video. Please try again.")
     
     return {'statusCode': 200, 'body': json.dumps('Message processed successfully')}
